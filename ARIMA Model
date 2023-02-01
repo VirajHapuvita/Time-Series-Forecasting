@@ -1,0 +1,100 @@
+import os
+os.getcwd()
+
+os.chdir('D:\Career\MAS Capital\Training\ML\Time Series Forecasting\Time Series Analysis\Legato')
+
+os.getcwd()
+
+#loading the libraries
+import numpy as np
+import pandas as pd
+import matplotlib.pyplot as plt
+from statsmodels.tsa.stattools import adfuller
+from statsmodels.tsa.stattools import acf,pacf
+from statsmodels.graphics.tsaplots import plot_acf, plot_pacf
+from statsmodels.tsa.seasonal import seasonal_decompose
+from statsmodels.tsa.arima.model import ARIMA
+from matplotlib.pylab import rcParams
+rcParams['figure.figsize'] = 10,6
+
+#loading the dataset
+dataset = pd.read_csv('Legato.csv')
+
+#encoding months
+numeric_var = {'Month': {'January':1, 'February':2, 'March':3, 'April':4, 'May':5, 'June':6, 'July':7, 'August':8, 'September':9, 'October':10, 'November':11, 'December':12}}
+dataset = dataset.replace(numeric_var)
+
+#convert datatypes of Year and Month to Strings so latter we can concatanate
+dataset['Year'] = dataset['Year'].map(str)
+dataset['Month'] = dataset['Month'].map(str)
+
+#concatanate Year and Month and Save it in a one column in the daraframe
+dataset['Month'] = dataset[['Year', 'Month']].agg('-'.join, axis=1)
+
+#Changing the index of dataframe to month column
+dataset.index = pd.to_datetime(dataset.Month)
+
+#Considering only the required columns for the further process
+dataset = dataset.drop(['Entity/Transaction', 'Year', 'Month'], axis=1)
+
+#Removing '%' symbol from the Margin Earned
+dataset['Margin Earned'] = dataset['Margin Earned'].str.rstrip('%')
+
+#Convert percentage into decimal value
+dataset['Margin Earned'] = dataset['Margin Earned'].map(float)/100
+dataset.head()
+
+#Plotting the graph
+plt.xlabel('Month')
+plt.ylabel('Margin Earned')
+plt.plot(dataset)
+
+#Checking for the Stationarity
+#Rolling Statistics
+rolMean = dataset.rolling(window=2).mean()
+rolStd = dataset.rolling(window=2).std()
+print(rolMean,rolStd)
+
+#Plotting Rolling Statistics
+
+orig = plt.plot(dataset, color='blue', label='Original')
+mean = plt.plot(rolMean, color='red', label='Rolling Mean')
+std = plt.plot(rolStd, color='black', label='Rolling Std')
+plt.legend(loc='best')
+plt.title('Rolling Mean & Standard Deviation')
+plt.show(block=False)
+
+#Checking for the Stationarity
+#Augmented Dicky-Fuller test:
+def adf_test(series):
+    result=adfuller(series)
+    print('ADF Statistics: {}'.format(result[0]))
+    print('p- value: {}'.format(result[1]))
+    if result[1] <= 0.05:
+        print("strong evidence against the null hypothesis, reject the null hypothesis. Data has no unit root and is stationary")
+    else:
+        print("weak evidence against null hypothesis, time series has a unit root, indicating it is non-stationary ")
+
+adf_test(dataset)
+
+#Applying to the ARIMA Model directly
+
+#ARIMA Model
+model = ARIMA(dataset['Margin Earned'], order=(2,1,2))
+results_AR = model.fit()
+plt.plot(dataset['Margin Earned'], label='Original')
+plt.plot(results_AR.fittedvalues, color='red', label='Fitted Values')
+plt.legend(loc='best')
+plt.title('RSS: %.4f'%sum((results_AR.fittedvalues - dataset['Margin Earned'])**2))
+print('Plotting AR model')
+
+ARIMA_predictions = pd.Series(results_AR.fittedvalues, copy=True)
+dataset['Predicted Value'] = ARIMA_predictions
+print(ARIMA_diff_predictions.head())
+
+from datetime import datetime,timedelta
+#results_AR.predict()
+plt.plot(dataset['Margin Earned'], label='Original')
+plt.plot(results_AR.predict(10,13), label='Prediction')
+plt.legend(loc='best')
+plt.title('RMSE: %.4f'% np.sqrt(sum((dataset['Predicted Value']-dataset['Margin Earned'])**2)/len(dataset['Margin Earned'])))
